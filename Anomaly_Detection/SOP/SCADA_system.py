@@ -138,16 +138,15 @@ def calculate_f1(y_true, y_pred=None, p=None, epsilon=None):
     if epsilon != None:
         y_pred = (p < epsilon).astype(int)
 
-    print(y_pred)
     tp = np.sum((y_pred == 1).astype(int) & (y_true == 1).astype(int))
     tn = np.sum((y_pred == 0).astype(int) & (y_true == 0).astype(int))
     fp = np.sum((y_pred == 1).astype(int) & (y_true == 0).astype(int))
     fn = np.sum((y_pred == 0).astype(int) & (y_true == 1).astype(int))
 
-    TPR = tp / (tp + fn)
-    TNR = tn / (tn + fp)
+    prec = tp / (tp + fp)
+    recc = tp / (tp + fn)
 
-    f1 = (TPR + TNR) / 2
+    f1 = (2 * prec * recc)/(prec + recc)
 
     return f1, tn, fp, fn, tp
 
@@ -269,16 +268,20 @@ if __name__ == '__main__':
     #     new_validate = pd.DataFrame(pca.transform(validation_data))
     #     new_test = pd.DataFrame(pca.transform(test_data))
     #
-    #     new_train = new_train.loc[:, (new_train != 0).any(axis=0)]
-    #     new_validate = new_validate.loc[:, (new_validate != 0).any(axis=0)]
-    #     new_test = new_test.loc[:, (new_train != 0).any(axis=0)]
+    #     # new_train = new_train.loc[:, (new_train != 0).any(axis=0)]
+    #     # new_validate = new_validate.loc[:, (new_validate != 0).any(axis=0)]
+    #     # new_test = new_test.loc[:, (new_train != 0).any(axis=0)]
     #
-    #     cv = StratifiedKFold(n_splits=10, random_state=157)
+    #     cv = StratifiedKFold(n_splits=20, random_state=157)
     #
-    #     for train_index, test_index in cv.split(new_validate, validation_att):
-    #         X_train, X_test = new_validate.iloc[train_index, :], new_validate.iloc[test_index, :]
-    #         y_train, y_test = validation_att.iloc[train_index, :], validation_att.iloc[test_index, :]
-    #         f1, tn, fp, fn, tp = mgd_anomaly_detection(train_data=new_train, validation_data=X_test, test_data=new_test, validation_att=y_test, test_att=test_att)
+    #     all_data = pd.concat([new_train, new_validate], axis=0, ignore_index=True)
+    #     all_data_att = pd.concat([train_att, validation_att], axis=0, ignore_index=True)
+    #
+    #     for train_index, test_index in cv.split(all_data, all_data_att):
+    #         X_train, X_test = all_data.iloc[train_index, :], all_data.iloc[test_index, :]
+    #         y_train, y_test = all_data_att.iloc[train_index, :], all_data_att.iloc[test_index, :]
+    #
+    #         f1, tn, fp, fn, tp = mgd_anomaly_detection(train_data=X_train, validation_data=X_test, test_data=new_test, validation_att=y_test, test_att=test_att)
     #
     #         f_sum = fp + fn
     #         p_sum = tp + tn
@@ -289,12 +292,11 @@ if __name__ == '__main__':
     #         # if f1 > best_f1 or (f1 == best_f1 and best_diff > diff and fn < fp):  #     best_f1 = f1  #     best_fsum = f_sum  #     best_tp = tp  #     best_tn = tn  #     best_fp = fp  #     best_fn = fn  #     best_n_features = n_features  #     best_n_neighbors = n_neighbors
     #
     #     avg_f1 = sum(f1_sum) / len(f1_sum)
-    #     print(sum(f1_sum) / len(f1_sum), n_features)
+    #     print(avg_f1, n_features)
     #
     #     if avg_f1 > best_avg_f1:
     #         best_avg_f1 = avg_f1
     #         best_n_features = n_features
-    #         print(best_f1, best_n_features)
     #         print(tn, fp)
     #         print(fn, tp)
     #     print(best_avg_f1, best_n_features)
@@ -333,38 +335,38 @@ if __name__ == '__main__':
 
     set_seed()
 
-    input_dim = new_train_data.shape[1]
-    encoding_dim = 179
-    input_layer = Input(shape=(input_dim, ))
-
-    encoder = Dense(int(encoding_dim * .8), activation='tanh', activity_regularizer=regularizers.l1(10e-5))(input_layer)
-    encoder = Dense(int(encoding_dim * .6), activation="relu")(encoder)
-    decoder = Dense(int(encoding_dim * .6), activation="relu")(encoder)
-    decoder = Dense(int(encoding_dim * .8), activation="tanh")(decoder)
-    decoder = Dense(input_dim, activation='tanh')(decoder)
-    autoencoder = Model(inputs=input_layer, outputs=decoder)
-
-    nb_epoch = 300
-    batch_size = 256
-    autoencoder.compile(optimizer='adam',
-                        loss='mean_squared_error',
-                        metrics=['accuracy'])
-
-    checkpointer = ModelCheckpoint(filepath="model.h5",
-                                   verbose=0,
-                                   save_best_only=True)
-
-    tensorboard = TensorBoard(log_dir='./logs',
-                              histogram_freq=0,
-                              write_graph=True,
-                              write_images=True)
-
-    history = autoencoder.fit(new_train_data, new_train_data,
-                              epochs=nb_epoch,
-                              batch_size=batch_size,
-                              shuffle=True,
-                              verbose=1,
-                              callbacks=[checkpointer, tensorboard]).history
+    # input_dim = new_train_data.shape[1]
+    # encoding_dim = 179
+    # input_layer = Input(shape=(input_dim, ))
+    #
+    # encoder = Dense(int(encoding_dim * .8), activation='tanh', activity_regularizer=regularizers.l1(10e-5))(input_layer)
+    # encoder = Dense(int(encoding_dim * .6), activation="relu")(encoder)
+    # decoder = Dense(int(encoding_dim * .6), activation="relu")(encoder)
+    # decoder = Dense(int(encoding_dim * .8), activation="tanh")(decoder)
+    # decoder = Dense(input_dim, activation='tanh')(decoder)
+    # autoencoder = Model(inputs=input_layer, outputs=decoder)
+    #
+    # nb_epoch = 300
+    # batch_size = 256
+    # autoencoder.compile(optimizer='adam',
+    #                     loss='mean_squared_error',
+    #                     metrics=['accuracy'])
+    #
+    # checkpointer = ModelCheckpoint(filepath="model.h5",
+    #                                verbose=0,
+    #                                save_best_only=True)
+    #
+    # tensorboard = TensorBoard(log_dir='./logs',
+    #                           histogram_freq=0,
+    #                           write_graph=True,
+    #                           write_images=True)
+    #
+    # history = autoencoder.fit(new_train_data, new_train_data,
+    #                           epochs=nb_epoch,
+    #                           batch_size=batch_size,
+    #                           shuffle=True,
+    #                           verbose=1,
+    #                           callbacks=[checkpointer, tensorboard]).history
 
     # plt.plot(history['loss'])
     # plt.plot(history['val_loss'])
@@ -374,26 +376,26 @@ if __name__ == '__main__':
     # plt.legend(['train', 'test'], loc='upper right')
     # plt.show()
 
-    # autoencoder = load_model('model.h5')
-    #
-    # predictions = autoencoder.predict(new_test_data)
-    # mse = np.mean(np.power(new_test_data - predictions, 2), axis=1)
-    # error_df = pd.concat([mse, test_att], 1)
-    #
-    # error_df.columns = ['reconstruction_error', 'true_class']
-    #
-    # threshold = .84
-    #
-    # y_pred = np.array([1 if e > threshold else 0 for e in error_df.reconstruction_error.values])
-    # conf_matrix = confusion_matrix(error_df.true_class, y_pred)
-    # plt.figure(figsize=(12, 12))
-    # sns.heatmap(conf_matrix, annot=True, fmt="d")
-    # plt.title("Confusion matrix")
-    # plt.ylabel('True class')
-    # plt.xlabel('Predicted class')
-    # plt.show()
-    #
-    # print(f1_score(y_true=error_df.true_class, y_pred=y_pred))
+    autoencoder = load_model('model.h5')
+
+    predictions = autoencoder.predict(new_test_data)
+    mse = np.mean(np.power(new_test_data - predictions, 2), axis=1)
+    error_df = pd.concat([mse, test_att], 1)
+
+    error_df.columns = ['reconstruction_error', 'true_class']
+
+    threshold = .84
+
+    y_pred = np.array([1 if e > threshold else 0 for e in error_df.reconstruction_error.values])
+    conf_matrix = confusion_matrix(error_df.true_class, y_pred)
+    plt.figure(figsize=(12, 12))
+    sns.heatmap(conf_matrix, annot=True, fmt="d")
+    plt.title("Confusion matrix")
+    plt.ylabel('True class')
+    plt.xlabel('Predicted class')
+    plt.show()
+
+    print(f1_score(y_true=error_df.true_class, y_pred=y_pred))
 
     # ----------------------------------------------------------- KMeans ------------------------------------------------------------ #
 
@@ -460,29 +462,29 @@ if __name__ == '__main__':
     #     print(best_avg_f1, best_n_features)
     #     f1_sum = []
 
-#     pca = PCA(n_components=32, whiten=True, random_state=157)
-#     pca.fit(train_data)
-#
-#     clf = KMeans(n_clusters=2, random_state=157, max_iter=500, n_init=20)
-#
-#     new_data_X = pd.concat([pd.DataFrame(pca.transform(train_data)), pd.DataFrame(pca.transform(validation_data))], axis=0, ignore_index=True)
-#     new_test = pd.DataFrame(pca.transform(test_data))
-# 0.
-#     clf.fit(X=new_data_X)
-#
-#     y_pred = clf.predict(new_test)
-#
-#     y_pred[y_pred == -1] = 0
-#
-#     f1, tn, fp, fn, tp = calculate_f1(test_att, y_pred.flatten())
-#
-#     f_sum = fp + fn
-#     p_sum = tp + tn
-#     diff = p_sum - f_sum
-#
-#     print(f1)
-#     print(tn, fp)
-#     print(fn, tp)
+    # pca = PCA(n_components=32, whiten=True, random_state=157)
+    # pca.fit(train_data)
+    #
+    # clf = KMeans(n_clusters=2, random_state=157, max_iter=500, n_init=20)
+    #
+    # new_data_X = pd.concat([pd.DataFrame(pca.transform(train_data)), pd.DataFrame(pca.transform(validation_data))], axis=0, ignore_index=True)
+    # new_test = pd.DataFrame(pca.transform(test_data))
+    #
+    # clf.fit(X=new_data_X)
+    #
+    # y_pred = clf.predict(new_test)
+    #
+    # y_pred[y_pred == -1] = 0
+    #
+    # f1, tn, fp, fn, tp = calculate_f1(test_att, y_pred.flatten())
+    #
+    # f_sum = fp + fn
+    # p_sum = tp + tn
+    # diff = p_sum - f_sum
+    #
+    # print(f1)
+    # print(tn, fp)
+    # print(fn, tp)
 
     # ----------------------------------------------------- ONE-CLASS SVM --------------------------------------------------------- #
 
@@ -855,7 +857,7 @@ if __name__ == '__main__':
     # bar = sns.barplot(x, y)
     # bar.set_ylabel('F1 Score')
     # plt.show()
-
+    #
     # plt.figure(figsize=(12, 12))
     # sns.heatmap(conf_matrix, annot=True, fmt="d")
     # plt.title("Confusion matrix")
