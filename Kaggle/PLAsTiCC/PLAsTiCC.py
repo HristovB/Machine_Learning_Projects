@@ -295,7 +295,7 @@ if __name__ == '__main__':
     # ax.set_ylabel('True label')
     # plt.show()
 
-# ---------------------------------------------------- MLP Neural Network ------------------------------------------------------------ #
+# ------------------------------------------------------------ MLP Neural Network ------------------------------------------------------------ #
 
     # from keras.models import Sequential
     # from keras.layers import Dense, BatchNormalization, Dropout, Activation
@@ -395,7 +395,7 @@ if __name__ == '__main__':
     # plt.show()
 
 
-# -------------------------------------------------------- Code for test set given in Kaggle (unused and obsolete) ----------------------------------------- #
+# ------------------------------------------------------------ Code for test set given in Kaggle (unused and obsolete) ------------------------------------------------------------ #
 
     # # Extract statistical features for test set (run once, then load)
     # chunksize = 50000000
