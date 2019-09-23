@@ -1,46 +1,24 @@
 import numpy as np
-import matplotlib
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import pandas as pd
-from joblib import dump, load
-from sklearn.preprocessing import RobustScaler, StandardScaler, MinMaxScaler, LabelBinarizer, Normalizer
-from sklearn.svm import OneClassSVM, SVC
-from sklearn.neighbors import KNeighborsClassifier
-from scipy.stats import multivariate_normal
-from sklearn.metrics import confusion_matrix, f1_score, accuracy_score
 import seaborn as sns
+from sklearn.preprocessing import StandardScaler, LabelBinarizer
+from sklearn.metrics import confusion_matrix
 from sklearn.feature_selection import mutual_info_classif
-from sklearn.cluster import KMeans
-from collections import defaultdict
-from sklearn.metrics.pairwise import euclidean_distances
-from sklearn.decomposition import PCA
-from sklearn.model_selection import KFold, StratifiedKFold, GridSearchCV, train_test_split
-from sklearn.ensemble import IsolationForest, RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier
 
+
+# Uncomment if running on laptop:
+# import matplotlib
 # matplotlib.use('GTK3Agg')
 
+
+# Setup pandas printing options
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
-
-
-def calculate_f1(y_true, y_pred=None, p=None, epsilon=None):
-    y_true = y_true.values.flatten().astype(int)
-
-    if epsilon != None:
-        y_pred = (p < epsilon).astype(int)
-
-    tp = np.sum((y_pred == 1).astype(int) & (y_true == 1).astype(int))
-    tn = np.sum((y_pred == 0).astype(int) & (y_true == 0).astype(int))
-    fp = np.sum((y_pred == 1).astype(int) & (y_true == 0).astype(int))
-    fn = np.sum((y_pred == 0).astype(int) & (y_true == 1).astype(int))
-
-    TPR = tp / (tp + fn)
-    TNR = tn / (tn + fp)
-
-    f1 = (TPR + TNR) / 2
-
-    return f1, tn, fp, fn, tp
 
 
 def multi_weighted_logloss(y_true, y_preds):
@@ -78,140 +56,159 @@ def multi_weighted_logloss(y_true, y_preds):
 
 
 def set_seed():
+
+    import os
+    import random
+    import tensorflow as tf
+
     # Seed value
     # Apparently you may use different seed values at each stage
     seed_value = 157
 
     # 1. Set `PYTHONHASHSEED` environment variable at a fixed value
-    import os
 
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
     os.environ['PYTHONHASHSEED'] = str(seed_value)
 
     # 2. Set `python` built-in pseudo-random generator at a fixed value
-    import random
 
     random.seed(seed_value)
 
     # 3. Set `numpy` pseudo-random generator at a fixed value
-    import numpy as np
 
     np.random.seed(seed_value)
 
     # 4. Set `tensorflow` pseudo-random generator at a fixed value
-    import tensorflow as tf
 
-    tf.set_random_seed(seed_value)
+    tf.compat.v1.set_random_seed(157)
 
     # 5. Configure a new global `tensorflow` session
-    from keras import backend as K
+    from keras import backend as k
 
-    session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
-    sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
-    K.set_session(sess)
+    session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1,
+                                            inter_op_parallelism_threads=1)
+
+    sess = tf.compat.v1.Session(graph=tf.compat.v1.get_default_graph(), config=session_conf)
+    k.set_session(sess)
+
+
+def generate_statistics(data):
+
+    # ----- Generation of statistical data from training_set (run once, then load) ----- #
+
+    num_rows = 7848  # number of objects in dataset
+    num_passbands = 6  # number of passband filters
+
+    # Generate super - feature for determining cyclicity of object
+    tmp_df = data[data['detected'] == 1]
+    mjd_min = tmp_df[['object_id', 'mjd']].groupby(['object_id']).min()
+    mjd_max = tmp_df[['object_id', 'mjd']].groupby(['object_id']).max()
+    mjd_diff = mjd_max - mjd_min
+    mjd_diff = pd.DataFrame(mjd_diff.values, columns=['mjd_diff'])  # needs to be appended later
+
+    # Generate two new features incorporating the flux error
+    data['flux_ratio_sq'] = (data['flux'] / data['flux_err']) ** 2
+    data['flux_by_flux_ratio_sq'] = data['flux'] * data['flux_ratio_sq']
+
+    # Drop now-useless columns
+    data = data.drop(['mjd', 'flux_err'], axis=1)
+
+    # Generate statistical data for flux time-series
+    mean_data = data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).mean()
+    mn_dt = pd.DataFrame(np.reshape(mean_data.values, (num_rows, num_passbands)), columns=['mn_u', 'mn_g', 'mn_r', 'mn_i', 'mn_z', 'mn_Y'])
+
+    median_data = data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).median()
+    md_dt = pd.DataFrame(np.reshape(median_data.values, (num_rows, num_passbands)), columns=['md_u', 'md_g', 'md_r', 'md_i', 'md_z', 'md_Y'])
+
+    max_data = data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).max()
+    mx_dt = pd.DataFrame(np.reshape(max_data.values, (num_rows, num_passbands)), columns=['mx_u', 'mx_g', 'mx_r', 'mx_i', 'mx_z', 'mx_Y'])
+
+    min_data = data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).min()
+    mi_dt = pd.DataFrame(np.reshape(min_data.values, (num_rows, num_passbands)), columns=['mi_u', 'mi_g', 'mi_r', 'mi_i', 'mi_z', 'mi_Y'])
+
+    std_data = data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).std()
+    st_dt = pd.DataFrame(np.reshape(std_data.values, (num_rows, num_passbands)), columns=['st_u', 'st_g', 'st_r', 'st_i', 'st_z', 'st_Y'])
+
+    rt_sq = data[['object_id', 'flux_ratio_sq', 'passband']].groupby(['object_id', 'passband']).sum()
+    rtsq_dt = pd.DataFrame(np.reshape(rt_sq.values, (num_rows, num_passbands)), columns=['rtsq_u', 'rtsq_g', 'rtsq_r', 'rtsq_i', 'rtsq_z', 'rtsq_Y'])
+
+    fl_by_rt = data[['object_id', 'flux_by_flux_ratio_sq', 'passband']].groupby(['object_id', 'passband']).sum()
+    flrt_dt = pd.DataFrame(np.reshape(fl_by_rt.values, (num_rows, num_passbands)), columns=['flrt_u', 'flrt_g', 'flrt_r', 'flrt_i', 'flrt_z', 'flrt_Y'])
+
+    statistics = pd.concat([mn_dt, md_dt, mx_dt, mi_dt, st_dt, rtsq_dt, flrt_dt, mjd_diff], axis=1)
+
+    # Standardize values of all columns
+    scaler = StandardScaler()
+    scaled_vals = scaler.fit_transform(statistics)
+    statistics.loc[:, :] = scaled_vals
+
+    # Generate mean value of 'detected' column
+    avg_det = data[['object_id', 'detected', 'passband']].groupby(['object_id', 'passband']).mean()
+    avg_dt = pd.DataFrame(np.reshape(avg_det.values, (7848, 6)), columns=['det_avg_u', 'det_avg_g', 'det_avg_r', 'det_avg_i', 'det_avg_z', 'det_avg_Y'])
+
+    statistics = pd.concat([statistics, avg_dt], axis=1)
+
+    # Save data
+    statistics.to_csv(r'gen_statistics_training.csv', index=False)
+
+    return statistics
+
+
+def setup_data(data, metadata):
+
+    # ----- Final setup of training data (run once, then load) ----- #
+
+    # Extract output labels into separate dataframe
+    labels = metadata.get(['target'])
+
+    # Generate new feature
+    metadata['hostgal_ph_ratio_sq'] = (metadata['hostgal_photoz'] / metadata['hostgal_photoz_err']) ** 2
+    metadata['hostgal_ph_ratio_sq'] = metadata['hostgal_ph_ratio_sq'].fillna(value=0)
+
+    # Drop unnecessary features
+    metadata = metadata.drop(['distmod', 'hostgal_specz', 'target', 'object_id', 'decl', 'hostgal_photoz', 'hostgal_photoz_err'], axis=1)
+
+    # Seperate 'ddf' binary feature into separate dataframe before standardization
+    ddf = metadata.get(['ddf'])
+    metadata = metadata.drop(['ddf'], axis=1)
+
+    # Standardize values of all columns
+    scaler = StandardScaler()
+    scaled_vals = scaler.fit_transform(metadata)
+    metadata.loc[:, :] = scaled_vals
+
+    # Append 'ddf' feature
+    metadata = pd.concat([metadata, ddf], axis=1)
+
+    # Generate new statistical features
+    statistics = generate_statistics(data)
+
+    # Append all dataframes
+    final_data = pd.concat([metadata, statistics, labels], axis=1)
+
+    # Save data
+    final_data.to_csv(r'full_training_data.csv', index=False)
+
+    return final_data
 
 
 if __name__ == '__main__':
 
-    # # Generation of statistical data from training_set (run once, then load)
-    #
+    # # Run once, then load from full_training_data.csv
     # training_data = pd.read_csv("F:\Stuff\Data\\training_set.csv")
-    # training_data = training_data.drop(['flux_err', 'mjd'], axis=1)
-    #
-    # mean_data = training_data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).mean()
-    # mn_dt = pd.DataFrame(np.reshape(mean_data.values, (7848, 6)), columns=['mn_u', 'mn_g', 'mn_r', 'mn_i', 'mn_z', 'mn_Y'])
-    #
-    # median_data = training_data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).median()
-    # md_dt = pd.DataFrame(np.reshape(median_data.values, (7848, 6)), columns=['md_u', 'md_g', 'md_r', 'md_i', 'md_z', 'md_Y'])
-    #
-    # max_data = training_data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).max()
-    # mx_dt = pd.DataFrame(np.reshape(max_data.values, (7848, 6)), columns=['mx_u', 'mx_g', 'mx_r', 'mx_i', 'mx_z', 'mx_Y'])
-    #
-    # min_data = training_data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).min()
-    # mi_dt = pd.DataFrame(np.reshape(min_data.values, (7848, 6)), columns=['mi_u', 'mi_g', 'mi_r', 'mi_i', 'mi_z', 'mi_Y'])
-    #
-    # std_data = training_data[['object_id', 'flux', 'passband']].groupby(['object_id', 'passband']).std()
-    # st_dt = pd.DataFrame(np.reshape(std_data.values, (7848, 6)), columns=['st_u', 'st_g', 'st_r', 'st_i', 'st_z', 'st_Y'])
-    #
-    # statistics = pd.concat([mn_dt, md_dt, mx_dt, mi_dt, st_dt], axis=1)
-    #
-    # scaler = StandardScaler()
-    # scaled_vals = scaler.fit_transform(statistics)
-    # statistics.loc[:, :] = scaled_vals
-    #
-    # avg_det = training_data[['object_id', 'detected', 'passband']].groupby(['object_id', 'passband']).mean()
-    # avg_dt = pd.DataFrame(np.reshape(avg_det.values, (7848, 6)), columns=['det_avg_u', 'det_avg_g', 'det_avg_r', 'det_avg_i', 'det_avg_z', 'det_avg_Y'])
-    #
-    # statistics = pd.concat([statistics, avg_dt], axis=1)
-    #
-    # statistics.to_csv(r'C:\Users\Blagoj\PycharmProjects\Machine_Learning\Kaggle\PLAsTiCC\gen_statistics_training.csv', index=False)
-
-
-    # # Setup full training data (run once, then load)
-    #
     # training_metadata = pd.read_csv("F:\Stuff\Data\\training_set_metadata.csv")
-    #
-    # data_y = training_metadata.get(['target'])
-    # # binarizer = LabelBinarizer()
-    # # data_y = pd.DataFrame(binarizer.fit_transform(data_y.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
-    #
-    # training_metadata['hostgal_ph'] = (training_metadata['hostgal_photoz'] * training_metadata['hostgal_photoz_err'])
-    # training_metadata = training_metadata.drop(['distmod', 'hostgal_specz', 'target', 'object_id', 'decl', 'hostgal_photoz', 'hostgal_photoz_err'], axis=1)
-    # ddf = training_metadata.get(['ddf'])
-    # training_metadata = training_metadata.drop(['ddf'], axis=1)
-    #
-    # scaler = StandardScaler()
-    # scaled_vals = scaler.fit_transform(training_metadata)
-    # training_metadata.loc[:, :] = scaled_vals
-    # training_metadata = pd.concat([training_metadata, ddf], axis=1)
-    #
-    # statistics = pd.read_csv('gen_statistics_training.csv')
-    #
-    # data = pd.concat([training_metadata, statistics, data_y], axis=1)
-    #
-    # data.to_csv(r'C:\Users\Blagoj\PycharmProjects\Machine_Learning\Kaggle\PLAsTiCC\full_training_data_stats.csv', index=False)
+    # setup_data(training_data, training_metadata)
 
-    data = pd.read_csv('full_training_data_stats.csv')
-    data_y = data['target']
-    data_X = data.drop(['target'], axis=1)
+    # Only run if data setup is done!
+    all_data = pd.read_csv('full_training_data.csv')
 
+    # Separate feature data and labels
+    data_y = all_data['target']
+    data_X = all_data.drop(['target'], axis=1)
+
+    # Split off 10% of the data for testing (use stratify to get proportional amount of labels in both sets - useful for imbalanced datasets)
     data_X, test_X, data_y, test_y = train_test_split(data_X, data_y, test_size=0.1, random_state=157, stratify=data_y.values)
-
-    # data_y = data.get(['target'])
-    # data_X = data.drop(['target'], axis=1)
-    #
-    # binarizer = LabelBinarizer()
-    # data_y = pd.DataFrame(binarizer.fit_transform(data_y.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
-
-    # Plot data
-    #
-    # data_615 = training_data.loc[training_data['object_id'] == 245853]
-    #
-    # plot_data = data_615.get(['mjd', 'flux', 'passband']).sort_values(by=['passband'])
-    #
-    # # plot_data = plot_data.loc[plot_data['mjd'] ]
-    #
-    # colors = ["#A025BE", "#25BE2C", "#DF2020", "#E89113", "#254CCF", "#000000"]
-    # palette = sns.color_palette(colors)
-    #
-    # ax = sns.scatterplot(x='mjd', y='flux', hue='passband', data=plot_data, palette=palette)
-    #
-    # ax.set_title('Light Curve of 615')
-    # ax.set_xlabel('MJD')
-    # ax.set_ylabel('Flux')
-    #
-    # plt.show()
-    # #
-
-    # data_X = data_X.drop(['ra', 'gal_l', 'gal_b', 'mwebv', 'ddf', 'mn_z', 'mx_z', 'mi_z', 'st_z', 'md_z'], axis=1)
-    # data_mutual_info = mutual_info_classif(X=data_X, y=data_y, random_state=157)
-    #
-    # plt.subplots(1, figsize=(26, 1))
-    # sns.heatmap(data_mutual_info[:, np.newaxis].T, cmap='Blues', cbar=False, linewidths=1, annot=True)
-    # plt.yticks([], [])
-    # plt.gca().set_xticklabels(data_X.columns[0:], rotation=45, ha='right', fontsize=12)
-    # plt.suptitle("mutual_info_classif)", fontsize=18, y=1.2)
-    # plt.gcf().subplots_adjust(wspace=0.2)
-    # plt.show()
 
     # # Feature correlation plot
     #
@@ -226,22 +223,25 @@ if __name__ == '__main__':
     # ax.set_yticks(ticks)
     # ax.set_xticklabels(data_X.columns)
     # ax.set_yticklabels(data_X.columns)
-    # plt.savefig('correlation.png')
+    # plt.savefig('feature_correlation.png')
     # plt.show()
 
-    # One-Hot encoding the target classes
-
-    # data_y = training_metadata.get(['target'])
-    # binarizer = LabelBinarizer()
-    # data_y = pd.DataFrame(binarizer.fit_transform(data_y.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
-
-    # # Plot data
+    # # Output correlation with features plot
+    # data_mutual_info = mutual_info_classif(X=data_X, y=data_y, random_state=157)
     #
+    # plt.subplots(1, figsize=(26, 1))
+    # sns.heatmap(data_mutual_info[:, np.newaxis].T, cmap='Blues', cbar=False, linewidths=1, annot=True)
+    # plt.yticks([], [])
+    # plt.gca().set_xticklabels(data_X.columns[0:], rotation=45, ha='right', fontsize=12)
+    # plt.suptitle("mutual_info_classif)", fontsize=18, y=1.2)
+    # plt.gcf().subplots_adjust(wspace=0.2)
+    # plt.savefig('output_correlation.png')
+    # plt.show()
+
+    # # Time-series data plot
     # data_615 = training_data.loc[training_data['object_id'] == 615]
     #
     # plot_data = data_615.get(['mjd', 'flux', 'passband']).sort_values(by=['passband'])
-    #
-    # # plot_data = plot_data.loc[plot_data['mjd'] ]
     #
     # colors = ["#A025BE", "#25BE2C", "#DF2020", "#E89113", "#254CCF", "#000000"]
     # palette = sns.color_palette(colors)
@@ -253,30 +253,8 @@ if __name__ == '__main__':
     # ax.set_ylabel('Flux')
     #
     # plt.show()
-    # #
 
-    # flux_data = pd.read_csv('flux_statistics.csv')
-    #
-    # scaler = StandardScaler()
-    # scaled_vals = scaler.fit_transform(flux_data)
-    # flux_data.loc[:, :] = scaled_vals
-    #
-    # data_X = training_metadata.drop(['object_id', 'target', 'distmod'], axis=1)
-    # scaler = StandardScaler()
-    # scaled_vals = scaler.fit_transform(data_X)
-    # data_X.loc[:, :] = scaled_vals
-    #
-    # data_X = pd.concat([data_X, flux_data], axis=1)
-
-    # cv = StratifiedKFold(n_splits=10, random_state=157)
-
-    # for n_features in range(5, data_X.shape[1]):
-    #     pca = PCA(n_components=n_features, whiten=True, random_state=157)
-    #     pca.fit(data_X)
-    #     pca.get_covariance()
-    #     data_X_pca = pd.DataFrame(pca.transform(data_X))
-    #
-
+    # # Grid search with 10 fold CV for model hyperparameters
     # n_estimators = [200, 300, 500, 750, 1000, 1200]
     # # learning_rate = [0.01, 0.03, 0.1, 0.3, 1, 3]
     # # max_depth = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None]
@@ -294,119 +272,130 @@ if __name__ == '__main__':
     # results = pd.DataFrame(gridF.cv_results_)
     # results.to_csv(r'results_et_3.csv', index=False)
 
-    # binarizer = LabelBinarizer()
-    # test_y = pd.DataFrame(binarizer.fit_transform(test_y.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
-
-
-
-    # clf = AdaBoostClassifier(random_state=157, base_estimator=RandomForestClassifier(n_estimators=750, random_state=157, n_jobs=-1))
-    #
+    # # Training and testing of ensemble algorithms
+    # clf = KNeighborsClassifier(n_neighbors=330, weights='distance', n_jobs=-1)
     # clf.fit(data_X, data_y)
     #
-
-    # from keras.models import Sequential, load_model
-    # from keras.layers import Dense, BatchNormalization, Dropout
-    # from keras.callbacks import ModelCheckpoint, TensorBoard
-    # from keras import regularizers
-    # import tensorflow as tf
+    # # Predict test labels
+    # y_predicted = clf.predict_proba(test_X)
     #
-    # set_seed()
-    #
-    # neural_net = load_model('model.h5')
-    #
-    # y_predicted = neural_net.predict_proba(test_X)
-    #
+    # # Calculate loss
     # score = multi_weighted_logloss(test_y, y_predicted)
-    #
     # print(score)
-
+    #
+    # # Confusion matrix plot
     # y_predicted = clf.predict(test_X)
-    # # y_predicted = pd.DataFrame(binarizer.fit_transform(y_predicted))
     #
     # cf_matrix = confusion_matrix(test_y, y_predicted)
     #
     # labels = ['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95']
     # ax = sns.heatmap(cf_matrix, annot=True, xticklabels=labels, yticklabels=labels, cbar=False, cmap='Blues')
-    # ax.set_title('Confusion Matrix - Extra Trees')
+    # ax.set_title('Confusion Matrix')
     # ax.set_xlabel('Predicted label')
     # ax.set_ylabel('True label')
     # plt.show()
 
-# ---------------------------------------------------- NN ------------------------------------------------------------ #
+# ---------------------------------------------------- MLP Neural Network ------------------------------------------------------------ #
 
-    from keras.models import Sequential, load_model
-    from keras.layers import Dense, BatchNormalization, Dropout
-    from keras.callbacks import ModelCheckpoint, TensorBoard
-    from keras.initializers import he_uniform, glorot_uniform
-    from keras import regularizers
-    import tensorflow as tf
-
-    set_seed()
-
-    X_train, X_test, y_train, y_test = train_test_split(data_X, data_y, test_size=0.1, random_state=157, stratify=data_y.values)
-
-    binarizer = LabelBinarizer()
-    y_train = pd.DataFrame(binarizer.fit_transform(y_train.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
-    y_test = pd.DataFrame(binarizer.fit_transform(y_test.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
-
-    nb_epoch = 600
-    batch_size = 256
-    input_dim = X_train.shape[1]
-    output_dim = 14
-    layer_size = output_dim*16
-    init_relu = he_uniform(seed=157)
-    init_tanh = glorot_uniform(seed=157)
-
-    nn = Sequential()
-
-    nn.add(Dense(layer_size, input_dim=input_dim, kernel_initializer=init_tanh, activation='tanh'))
-    nn.add(BatchNormalization())
-    nn.add(Dropout(0.25))
-
-    nn.add(Dense(int(layer_size / 2), kernel_initializer=init_relu, activation='relu'))
-    nn.add(BatchNormalization())
-    nn.add(Dropout(0.25))
-
-    nn.add(Dense(int(layer_size / 4), kernel_initializer=init_tanh, activation='tanh'))
-    nn.add(BatchNormalization())
-    nn.add(Dropout(0.25))
-
-    nn.add(Dense(int(layer_size / 8), kernel_initializer=init_relu, activation='relu'))
-    nn.add(BatchNormalization())
-    nn.add(Dropout(0.125))
-
-    nn.add(Dense(output_dim, kernel_initializer=init_tanh, activation='softmax'))
-
-    nn.compile(optimizer='adam',
-               loss='mean_squared_logarithmic_error',
-               metrics=['accuracy'])
-
-    checkpointer = ModelCheckpoint(filepath="model.h5",
-                                   verbose=0,
-                                   save_best_only=True)
-
-    tensorboard = TensorBoard(log_dir='./logs',
-                              histogram_freq=0,
-                              write_graph=True,
-                              write_images=True)
-
-    history = nn.fit(x=X_train, y=y_train,
-                     validation_data=[X_test, y_test],
-                     epochs=nb_epoch,
-                     batch_size=batch_size,
-                     shuffle=True,
-                     verbose=1,
-                     callbacks=[checkpointer, tensorboard]).history
-
-    y_predicted = nn.predict_proba(test_X, batch_size=batch_size)
-
-    score = multi_weighted_logloss(test_y, y_predicted)
-    print(score)
-
-    # neural_net = load_model('model.h5')
-    # data_y_pred = neural_net.predict_proba(data_X, batch_size=256)
-    # score = multi_weighted_logloss(data_y, data_y_pred)
+    # from keras.models import Sequential
+    # from keras.layers import Dense, BatchNormalization, Dropout, Activation
+    # from keras.callbacks import ModelCheckpoint, TensorBoard
+    # from keras.initializers import he_uniform, glorot_uniform
+    # from keras.optimizers import Adamax
+    #
+    # # Set random seed of all possible random generated values (for network reproducibility)
+    # set_seed()
+    #
+    # # Split off 10% of the data for model validation
+    # X_train, X_test, y_train, y_test = train_test_split(data_X, data_y, test_size=0.1, random_state=157, stratify=data_y.values)
+    #
+    # # One-Hot encoding of output labels
+    # binarizer = LabelBinarizer()
+    # y_train = pd.DataFrame(binarizer.fit_transform(y_train.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
+    # y_test = pd.DataFrame(binarizer.fit_transform(y_test.values), columns=['6', '15', '16', '42', '52', '53', '62', '64', '65', '67', '88', '90', '92', '95'])
+    #
+    # # Setup of hyperparameters
+    # nb_epoch = 900
+    # batch_size = 256
+    #
+    # input_dim = X_train.shape[1]
+    # output_dim = 14
+    # layer_size = 50
+    #
+    # # init_relu = he_uniform(seed=157)        # used for ReLU
+    # init_tanh = glorot_uniform(seed=157)    # used for tanh and softmax
+    #
+    # opt = Adamax(learning_rate=0.009, beta_1=0.9, beta_2=0.999)
+    #
+    # # Neural network starts
+    # nn = Sequential()
+    #
+    # # Input and first hidden layer
+    # nn.add(Dense(layer_size, input_dim=input_dim, kernel_initializer=init_tanh))
+    # nn.add(Activation('tanh'))
+    # nn.add(BatchNormalization(momentum=0.8))
+    # nn.add(Dropout(0.17, seed=157))
+    #
+    # # Second hidden layer
+    # nn.add(Dense(int(layer_size), kernel_initializer=init_tanh))
+    # nn.add(Activation('tanh'))
+    # nn.add(BatchNormalization(momentum=0.8))
+    # nn.add(Dropout(0.17, seed=157))
+    #
+    # # # Two additional hidden layers used before implementing new features
+    # # nn.add(Dense(int(layer_size), kernel_initializer=init_tanh))
+    # # nn.add(Activation('tanh'))
+    # # nn.add(BatchNormalization(momentum=0.8))
+    # # nn.add(Dropout(0.25))
+    # #
+    # # nn.add(Dense(int(layer_size), kernel_initializer=init_relu))
+    # # nn.add(Activation('relu'))
+    # # nn.add(BatchNormalization(momentum=0.8))
+    # # nn.add(Dropout(0.20))
+    #
+    # # Output layer
+    # nn.add(Dense(output_dim, kernel_initializer=init_tanh))
+    # nn.add(Activation('softmax'))
+    #
+    # nn.compile(optimizer=opt,
+    #            loss='mean_squared_logarithmic_error',
+    #            metrics=['categorical_accuracy'])
+    #
+    # checkpointer = ModelCheckpoint(filepath="model.h5",
+    #                                verbose=1,
+    #                                save_best_only=True)
+    #
+    # tensorboard = TensorBoard(log_dir='./logs',
+    #                           histogram_freq=0,
+    #                           write_graph=True,
+    #                           write_images=True)
+    #
+    # history = nn.fit(x=X_train, y=y_train,
+    #                  validation_data=[X_test, y_test],
+    #                  epochs=nb_epoch,
+    #                  batch_size=batch_size,
+    #                  shuffle=True,
+    #                  verbose=1,
+    #                  callbacks=[checkpointer, tensorboard]).history
+    #
+    # # Predict test labels
+    # y_predicted = nn.predict_proba(test_X, batch_size=batch_size)
+    #
+    # # Calculate loss
+    # score = multi_weighted_logloss(test_y, y_predicted)
     # print(score)
+    #
+    # # Model training/validation loss plot
+    # plt.plot(history['loss'])
+    # plt.plot(history['val_loss'])
+    # plt.title('Model Loss')
+    # plt.ylabel('Loss')
+    # plt.xlabel('Epoch')
+    # plt.legend(['train', 'validation'], loc='upper left')
+    # plt.show()
+
+
+# -------------------------------------------------------- Code for test set given in Kaggle (unused and obsolete) ----------------------------------------- #
 
     # # Extract statistical features for test set (run once, then load)
     # chunksize = 50000000
