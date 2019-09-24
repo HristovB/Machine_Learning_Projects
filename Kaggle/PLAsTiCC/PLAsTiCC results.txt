@@ -38,14 +38,14 @@ Parameters: epochs = 900
 	    batch_size = 256
 	    
 Structure: 
-		Neurons | Act. funct. |      Init      | Batch Norm. | Dropout |
+             Neurons |   Act. funct.  |    Weight Init.    |  Batch Norm.  | Dropout |
 	      
-   INPUT	  42	      /		      /	              /		  /
-   HIDDEN_1	  224	     tanh       glorot_uniform       0.8	0.25
-   HIDDEN_2	  112	     ReLU         he_uniform         0.8	0.25
-   HIDDEN_3	  56	     tanh       glorot_uniform       0.8	0.25
-   HIDDEN_4	  28	     ReLU         he_uniform         0.8	0.20
-   OUTPUT	  14        softmax	glorot_uniform        /           /
+   INPUT        42            /                 /                 /             /
+   HIDDEN_1     224         tanh          glorot_uniform         0.8           0.25
+   HIDDEN_2     112         ReLU          he_uniform             0.8           0.25
+   HIDDEN_3     56          tanh          glorot_uniform         0.8           0.25
+   HIDDEN_4     28          ReLU          he_uniform             0.8           0.20
+   OUTPUT       14         softmax        glorot_uniform          /             /
 
 
 Multi weighted log-loss: 1.194
@@ -109,11 +109,11 @@ Parameters: epochs = 1000
 Structure: 
              Neurons |   Act. funct.  |    Weight Init.    |  Batch Norm.  | Dropout | Weight Constraints |
 	      
-   INPUT        55            /                 /               /            /              /
-   HIDDEN_1     50          tanh          glorot_uniform        0.8          0.2         max norm = 3
-   HIDDEN_2     50          tanh          glorot_uniform        0.8          0.2         max norm = 3
-   HIDDEN_3     50          tanh          glorot_uniform        0.8          0.1         max norm = 3
-   OUTPUT       14         softmax        glorot_uniform         /            /
+   INPUT        55            /                 /                 /             /              /
+   HIDDEN_1     50          tanh          glorot_uniform         0.8           0.2         max norm = 3
+   HIDDEN_2     50          tanh          glorot_uniform         0.8           0.2         max norm = 3
+   HIDDEN_3     50          tanh          glorot_uniform         0.8           0.1         max norm = 3
+   OUTPUT       14         softmax        glorot_uniform          /             /
 
 
 Multi weighted log-loss: 1.111
