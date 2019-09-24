@@ -505,6 +505,8 @@ if __name__ == '__main__':
     # # Calculate F1 score
     # f1 = f1_score(test_y, y_predicted, labels=labels, average='weighted')
     # print('F1 score:', f1)
+    # f1 = f1_score(test_y, y_predicted, labels=labels, average='weighted')
+    # print('F1 score weighted:', f1)
 
 # ------------------------------------------------------------ Code for test set given in Kaggle (unused and obsolete) ------------------------------------------------------------ #
 

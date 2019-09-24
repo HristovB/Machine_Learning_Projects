@@ -1,0 +1,122 @@
+*----------------------------------- CLASSIFICATION OF PLASTICC DATASET -----------------------------------*
+
+
+------------------------------------------- K-Nearest Neighbors --------------------------------------------
+
+Parameters: n_neighbors = 370
+	    weights='distance'
+
+Multi weighted log-loss: 2.645
+
+
+-------------------------------------------- Gradient Boosting ---------------------------------------------
+
+Parameters: n_estimators = 500
+	    learning_rate = 0.01
+
+Multi weighted log-loss: 1.360
+
+
+----------------------------------------------- Extra Trees ------------------------------------------------
+
+Parameters: n_estimators = 1200
+	    max_features = 42
+
+Multi weighted log-loss: 1.273
+
+
+--------------------------------------- AdaBoost with Random Forest ----------------------------------------
+
+Parameters: n_estimators = 750 (for base estimator)
+
+Multi weighted log-loss: 1.269
+
+
+-------------------------------------------- MLP Neural Network --------------------------------------------
+
+Parameters: epochs = 900
+	    batch_size = 256
+	    
+Structure: 
+		Neurons | Act. funct. |      Init      | Batch Norm. | Dropout |
+	      
+   INPUT	  42	      /		      /	              /		  /
+   HIDDEN_1	  224	     tanh       glorot_uniform       0.8	0.25
+   HIDDEN_2	  112	     ReLU         he_uniform         0.8	0.25
+   HIDDEN_3	  56	     tanh       glorot_uniform       0.8	0.25
+   HIDDEN_4	  28	     ReLU         he_uniform         0.8	0.20
+   OUTPUT	  14        softmax	glorot_uniform        /           /
+
+
+Multi weighted log-loss: 1.194
+
+
+
+*------------------------------------------- USING NEW FEATURES -------------------------------------------*
+
+
+------------------------------------------- K-Nearest Neighbors --------------------------------------------
+
+Parameters: n_neighbors = 330
+	    weights='distance'
+
+Multi weighted log-loss: 2.420
+
+F1 score (micro):    0.440
+F1 score (weighted): 0.324
+
+
+-------------------------------------------- Gradient Boosting ---------------------------------------------
+
+Parameters: n_estimators = 500
+	    learning_rate = 0.01
+
+Multi weighted log-loss: 1.273
+
+F1 score (micro):    0.719
+F1 score (weighted): 0.694
+
+
+----------------------------------------------- Extra Trees ------------------------------------------------
+
+Parameters: n_estimators = 1200
+	    max_features = 55
+
+Multi weighted log-loss: 1.199
+
+F1 score (micro):    0.742
+F1 score (weighted): 0.722
+
+
+--------------------------------------- AdaBoost with Random Forest ----------------------------------------
+
+Parameters: n_estimators = 1200 (for base estimator)
+
+Multi weighted log-loss: 1.192
+
+F1 score (micro):    0.740
+F1 score (weighted): 0.713
+
+
+-------------------------------------------- MLP Neural Network --------------------------------------------
+
+Parameters: epochs = 1000
+	    batch_size = 256
+	    optimizer = Adam with learning rate = 0.001
+	    loss = MSLE (mean squared logarithmic error)
+	    metric = categorical accuracy
+	    
+Structure: 
+             Neurons |   Act. funct.  |    Weight Init.    |  Batch Norm.  | Dropout | Weight Constraints |
+	      
+   INPUT        55            /                 /               /            /              /
+   HIDDEN_1     50          tanh          glorot_uniform        0.8          0.2         max norm = 3
+   HIDDEN_2     50          tanh          glorot_uniform        0.8          0.2         max norm = 3
+   HIDDEN_3     50          tanh          glorot_uniform        0.8          0.1         max norm = 3
+   OUTPUT       14         softmax        glorot_uniform         /            /
+
+
+Multi weighted log-loss: 1.111
+
+F1 score (micro):    0.745
+F1 score (weighted): 0.727
