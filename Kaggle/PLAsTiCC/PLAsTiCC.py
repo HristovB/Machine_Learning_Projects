@@ -237,7 +237,7 @@ def correlation_plot(X, y, method='feature'):
 
         data_mutual_info = mutual_info_classif(X=X, y=y, random_state=157)
 
-        plt.subplots(1, figsize=(26, 1))
+        plt.subplots(1, figsize=(26, 26))
         sns.heatmap(data_mutual_info[:, np.newaxis].T, cmap='Blues', cbar=False, linewidths=1, annot=True)
         plt.yticks([], [])
         plt.gca().set_xticklabels(data_X.columns[0:], rotation=45, ha='right', fontsize=12)
@@ -331,7 +331,7 @@ if __name__ == '__main__':
     data_y = all_data['target']
     data_X = all_data.drop(['target'], axis=1)
 
-    # correlation_plot(X=data_X, y=data_y)  # Plot for feature/label correlation
+    correlation_plot(X=data_X, y=data_y, method='feature')  # Plot for feature/label correlation
 
     # light_curves_plot(training_data, object_id=713)  # Scatterplot for light curve data of individual objects (use original training dataset)
 
