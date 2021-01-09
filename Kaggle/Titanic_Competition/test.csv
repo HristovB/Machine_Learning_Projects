@@ -87,7 +87,7 @@ PassengerId,Pclass,Name,Sex,Age,SibSp,Parch,Ticket,Fare,Cabin,Embarked
 977,3,"Khalil, Mr. Betros",male,,1,0,2660,14.4542,,C
 978,3,"Barry, Miss. Julia",female,27,0,0,330844,7.8792,,Q
 979,3,"Badman, Miss. Emily Louisa",female,18,0,0,A/4 31416,8.05,,S
-980,3,"O'Donoghue, Ms. Bridget",female,,0,0,364856,7.75,,Q
+980,3,"O'Donoghue, Miss. Bridget",female,,0,0,364856,7.75,,Q
 981,2,"Wells, Master. Ralph Lester",male,2,1,1,29103,23,,S
 982,3,"Dyker, Mrs. Adolf Fredrik (Anna Elisabeth Judith Andersson)",female,22,1,0,347072,13.9,,S
 983,3,"Pedersen, Mr. Olaf",male,,0,0,345498,7.775,,S
