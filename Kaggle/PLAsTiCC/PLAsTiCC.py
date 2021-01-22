@@ -7,6 +7,7 @@ from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from Kaggle.Common_Files.utils import set_seed, correlation_plot
 
 
 # Uncomment if running on laptop:
@@ -17,44 +18,6 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, Gradien
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 np.set_printoptions(threshold=np.inf)
-
-
-def set_seed():
-
-    import os
-    import random
-    import tensorflow as tf
-
-    # Seed value
-    # Apparently you may use different seed values at each stage
-    seed_value = 157
-
-    # 1. Set `PYTHONHASHSEED` environment variable at a fixed value
-
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    os.environ['PYTHONHASHSEED'] = str(seed_value)
-
-    # 2. Set `python` built-in pseudo-random generator at a fixed value
-
-    random.seed(seed_value)
-
-    # 3. Set `numpy` pseudo-random generator at a fixed value
-
-    np.random.seed(seed_value)
-
-    # 4. Set `tensorflow` pseudo-random generator at a fixed value
-
-    tf.compat.v1.set_random_seed(157)
-
-    # 5. Configure a new global `tensorflow` session
-    from keras import backend as k
-
-    session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1,
-                                            inter_op_parallelism_threads=1)
-
-    sess = tf.compat.v1.Session(graph=tf.compat.v1.get_default_graph(), config=session_conf)
-    k.set_session(sess)
 
 
 def multi_weighted_logloss(y_true, y_preds):
@@ -207,47 +170,6 @@ def setup_data(data, metadata, method='old'):
     final_data.to_csv(r'full_training_data.csv', index=False)
 
     return final_data
-
-
-def correlation_plot(X, y, method='feature'):
-
-    # ----- Correlation plot ----- #
-
-    if method == 'feature':
-
-        # Plot feature correlation
-        corr = X.corr()
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        cax = ax.matshow(corr, cmap='coolwarm', vmin=-1, vmax=1)
-        fig.colorbar(cax)
-        ticks = np.arange(0, len(X.columns), 1)
-        ax.set_xticks(ticks)
-        plt.xticks(rotation=90)
-        ax.set_yticks(ticks)
-        ax.set_xticklabels(X.columns)
-        ax.set_yticklabels(X.columns)
-        plt.savefig('feature_correlation.png')
-        plt.show()
-
-    elif method == 'label':
-
-        # Plot label correlation
-        from sklearn.feature_selection import mutual_info_classif
-
-        data_mutual_info = mutual_info_classif(X=X, y=y, random_state=157)
-
-        plt.subplots(1, figsize=(26, 26))
-        sns.heatmap(data_mutual_info[:, np.newaxis].T, cmap='Blues', cbar=False, linewidths=1, annot=True)
-        plt.yticks([], [])
-        plt.gca().set_xticklabels(data_X.columns[0:], rotation=45, ha='right', fontsize=12)
-        plt.suptitle("mutual_info_classif)", fontsize=18, y=1.2)
-        plt.gcf().subplots_adjust(wspace=0.2)
-        plt.savefig('output_correlation.png')
-        plt.show()
-
-    elif method != 'feature' and method != 'label':
-        raise ValueError('Wrong input for method! Acceptable inputs: \'feature\', \'label\'')
 
 
 def light_curves_plot(data, object_id=615):
